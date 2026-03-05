@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>∞ Mario × Infinity — Synch Pipe Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Barlow+Condensed:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#04040c;--surf:#0a0a18;--panel:#12121e;--bord:#1e1e38;
+  --gold:#ffd700;--gold2:#ffb300;--gold-dim:#7a6200;--gold-glow:rgba(255,215,0,.3);
+  --purple:#8855ff;--cyan:#00ffcc;--red:#ff2255;--green:#00ff88;
+  --text:#dde0ff;--dim:#44446a;--acc:#cc44ff;--mario-red:#e53935;
+  --mario-blue:#1565c0;--mario-sky:#5c94fc;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:'Barlow Condensed',sans-serif;
+  overflow:hidden;user-select:none;
+}
+
+/* ── SCANLINE OVERLAY ── */
+body::after{content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);
+  pointer-events:none;z-index:9999}
+
+/* ── APP SHELL ── */
+#app{display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+
+/* ══════════════════════════════════
+   HEADER / LOGO
+══════════════════════════════════ */
+#topbar{
+  display:flex;align-items:center;gap:8px;padding:0 10px;
+  background:var(--surf);
+  border-bottom:3px solid;
+  border-image:linear-gradient(90deg,var(--mario-red),var(--gold),var(--mario-red)) 1;
+  flex-shrink:0;min-height:48px;position:relative;z-index:100;
+}
+#logo{
+  display:flex;align-items:center;gap:8px;text-decoration:none;
+  flex:1;overflow:hidden;
+}
+.logo-icon{
+  width:36px;height:36px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,var(--mario-red),#8b0000);
+  border:3px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;flex-shrink:0;
+  box-shadow:0 0 12px var(--gold-glow);
+  animation:logoPulse 3s ease-in-out infinite;
+}
+@keyframes logoPulse{0%,100%{box-shadow:0 0 8px var(--gold-glow)}50%{box-shadow:0 0 22px var(--gold-glow),0 0 44px rgba(255,215,0,.15)}}
+.logo-text{display:flex;flex-direction:column;overflow:hidden}
+.logo-top{
+  font-family:'Press Start 2P',monospace;font-size:6px;
+  background:linear-gradient(90deg,var(--gold),#fff,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;letter-spacing:1px;white-space:nowrap;
+}
+.logo-sub{font-size:10px;color:var(--dim);letter-spacing:2px;white-space:nowrap}
+.topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.hud-chip{
+  background:var(--panel);border:1px solid var(--bord);border-radius:6px;
+  padding:3px 8px;display:flex;flex-direction:column;align-items:center;
+  font-family:'Press Start 2P',monospace;
+}
+.hud-chip .lbl{font-size:4px;color:var(--dim);letter-spacing:1px}
+.hud-chip .val{font-size:7px;color:var(--gold)}
+#ham-btn{
+  width:36px;height:36px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:6px;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;gap:5px;cursor:pointer;flex-shrink:0;
+}
+#ham-btn span{display:block;width:18px;height:2px;background:var(--gold);border-radius:2px}
+
+/* ══════════════════════════════════
+   EMULATOR AREA
+══════════════════════════════════ */
+#emu-wrap{
+  flex:1;position:relative;background:#000;overflow:hidden;min-height:0;
+}
+#emu-placeholder{
+  position:absolute;inset:0;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:20px;
+}
+.emu-logo{font-family:'Press Start 2P',monospace;font-size:14px;
+  background:linear-gradient(135deg,var(--mario-red),var(--gold),#ff6600);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-shadow:none;line-height:1.6;
+}
+.emu-sub{font-family:'Press Start 2P',monospace;font-size:6px;color:var(--dim);line-height:2.4}
+#emu-loading{
+  position:absolute;inset:0;background:rgba(0,0,0,.96);z-index:60;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#emu-loading.show{display:flex}
+.load-txt{font-family:'Press Start 2P',monospace;font-size:7px;color:var(--gold);
+  text-align:center;line-height:2}
+.load-bar{width:200px;height:6px;background:var(--panel);border-radius:4px;overflow:hidden}
+.load-fill{height:100%;background:linear-gradient(90deg,var(--mario-red),var(--gold));
+  border-radius:4px;animation:loadAnim 1.4s ease-in-out infinite}
+@keyframes loadAnim{0%{width:0;margin-left:0}50%{width:70%;margin-left:15%}100%{width:0;margin-left:100%}}
+#game-container{position:absolute;inset:0}
+#game-container canvas{width:100%!important;height:100%!important;object-fit:contain}
+
+/* ── INFOBAR ── */
+#infobar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:3px 10px;background:var(--surf);border-top:1px solid var(--bord);
+  flex-shrink:0;min-height:28px;
+}
+#game-name{font-family:'Press Start 2P',monospace;font-size:5px;color:var(--green);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.ib-row{display:flex;gap:4px}
+.ib-btn{padding:3px 7px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:4px;color:var(--dim);font-size:10px;font-weight:700;cursor:pointer}
+.ib-btn:active{border-color:var(--gold);color:var(--gold)}
+
+/* ══════════════════════════════════
+   KNOWLEDGE TICKER
+══════════════════════════════════ */
+#knowledge-ticker{
+  background:linear-gradient(90deg,var(--panel),rgba(18,18,30,.9),var(--panel));
+  border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);
+  padding:4px 0;overflow:hidden;flex-shrink:0;position:relative;height:28px;
+}
+#ticker-inner{
+  display:flex;align-items:center;gap:0;
+  white-space:nowrap;animation:tickerScroll 40s linear infinite;
+  font-family:'Press Start 2P',monospace;font-size:5px;
+}
+@keyframes tickerScroll{0%{transform:translateX(100vw)}100%{transform:translateX(-100%)}}
+.tick-item{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:0 20px;color:var(--gold);
+}
+.tick-item a{color:var(--cyan);text-decoration:none}
+.tick-sep{color:var(--dim);padding:0 8px}
+#ticker-new{
+  position:absolute;inset:0;display:flex;align-items:center;padding:0 10px;
+  font-family:'Press Start 2P',monospace;font-size:5px;
+  background:var(--panel);opacity:0;pointer-events:none;
+  transition:opacity .3s;z-index:5;
+}
+#ticker-new.flash{opacity:1}
+
+/* ══════════════════════════════════
+   TOUCH CONTROLS
+══════════════════════════════════ */
+#ctrl{
+  background:linear-gradient(180deg,var(--surf),var(--bg));
+  border-top:1px solid var(--bord);
+  padding:6px 12px 8px;flex-shrink:0;
+}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+/* D-PAD */
+#joy-wrap{position:relative;width:88px;height:88px;flex-shrink:0}
+#joy-base{
+  position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#1e1e30,#0a0a15);
+  border:2px solid var(--bord);
+}
+#joy-ring{position:absolute;inset:10px;border-radius:50%;border:1px solid rgba(255,255,255,.08)}
+.joy-lbl{position:absolute;font-family:'Press Start 2P',monospace;font-size:5px;
+  color:rgba(255,255,255,.2);pointer-events:none}
+.joy-lbl.u{top:6px;left:50%;transform:translateX(-50%)}
+.joy-lbl.d{bottom:6px;left:50%;transform:translateX(-50%)}
+.joy-lbl.l{left:6px;top:50%;transform:translateY(-50%)}
+.joy-lbl.r{right:6px;top:50%;transform:translateY(-50%)}
+#joy-thumb{
+  position:absolute;width:32px;height:32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#3a3a58,#1a1a2e);
+  border:2px solid var(--gold);top:50%;left:50%;transform:translate(-50%,-50%);
+  cursor:pointer;transition:box-shadow .1s;
+}
+#joy-thumb.active{box-shadow:0 0 16px var(--gold)}
+/* CENTER BUTTONS */
+#center-btns{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sys-btn{
+  padding:4px 10px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:20px;color:var(--dim);font-size:10px;font-weight:700;cursor:pointer;
+  transition:all .1s;
+}
+.sys-btn:active{background:var(--gold);color:#000;border-color:var(--gold)}
+/* L/R SHOULDER BUTTONS */
+#shoulder-btns{display:flex;gap:4px}
+.shldr{
+  padding:5px 10px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:6px;color:var(--dim);font-family:'Press Start 2P',monospace;
+  font-size:7px;cursor:pointer;
+}
+.shldr:active{background:var(--acc);color:#fff;border-color:var(--acc)}
+/* FACE BUTTONS */
+#face-btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;flex-shrink:0}
+.face-btn{
+  width:44px;height:44px;border-radius:50%;border:none;
+  font-family:'Press Start 2P',monospace;font-size:8px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:transform .1s;
+}
+.face-btn:active{transform:scale(.86)}
+#btn-a{background:radial-gradient(circle at 35% 30%,#ff5588,#cc0033);color:#fff}
+#btn-b{background:radial-gradient(circle at 35% 30%,#ffaa00,#cc7700);color:#fff}
+#btn-x{background:radial-gradient(circle at 35% 30%,#5588ff,#2244cc);color:#fff}
+#btn-y{background:radial-gradient(circle at 35% 30%,#44cc44,#228822);color:#fff}
+
+/* ══════════════════════════════════
+   EMOJI POWER BAR
+══════════════════════════════════ */
+#power-bar{
+  background:var(--bg);border-top:2px solid var(--bord);
+  padding:6px 10px;flex-shrink:0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+#power-bar::-webkit-scrollbar{display:none}
+#power-inner{display:flex;gap:6px;min-width:max-content}
+.pow-btn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:var(--panel);border:1px solid var(--bord);border-radius:10px;
+  padding:6px 8px;cursor:pointer;transition:all .15s;min-width:52px;
+  flex-shrink:0;
+}
+.pow-btn:active,.pow-btn:hover{
+  border-color:var(--gold);
+  background:rgba(255,215,0,.07);
+  transform:translateY(-2px);
+}
+.pow-emoji{font-size:1.5rem;line-height:1}
+.pow-label{
+  font-family:'Press Start 2P',monospace;font-size:4px;
+  color:var(--dim);text-align:center;line-height:1.4;white-space:nowrap;
+}
+
+/* ══════════════════════════════════
+   SIDE NAV
+══════════════════════════════════ */
+#sidenav{
+  position:fixed;left:0;top:0;bottom:0;width:240px;
+  background:var(--surf);border-right:1px solid var(--bord);
+  z-index:300;transform:translateX(-100%);transition:transform .25s;
+  display:flex;flex-direction:column;padding:16px 0;overflow-y:auto;
+}
+#sidenav.open{transform:translateX(0)}
+#sidenav h3{
+  font-family:'Press Start 2P',monospace;font-size:6px;color:var(--gold);
+  padding:8px 16px 14px;border-bottom:1px solid var(--bord);margin-bottom:6px;
+}
+#sidenav a{
+  display:flex;align-items:center;gap:10px;padding:10px 16px;
+  color:var(--dim);text-decoration:none;font-size:14px;font-weight:700;transition:all .15s;
+}
+#sidenav a:hover,#sidenav a.active{
+  color:var(--gold);background:rgba(255,215,0,.06);padding-left:20px;border-left:3px solid var(--gold);
+}
+#nav-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:299;display:none}
+#nav-ov.show{display:block}
+
+/* ══════════════════════════════════
+   SYNCH PIPE WARP OVERLAY
+══════════════════════════════════ */
+#pipe-warp{
+  position:fixed;inset:0;background:#000;z-index:500;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:0;
+}
+#pipe-warp.open{display:flex}
+#pipe-warp-header{
+  width:100%;padding:8px 14px;background:var(--surf);
+  border-bottom:2px solid var(--purple);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+#pipe-warp-header h2{
+  font-family:'Press Start 2P',monospace;font-size:7px;
+  background:linear-gradient(90deg,var(--purple),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.pipe-close{
+  padding:6px 12px;background:var(--mario-red);border:none;border-radius:6px;
+  color:#fff;font-weight:700;font-size:13px;cursor:pointer;
+}
+#pipe-vid-wrap{
+  flex:1;width:100%;position:relative;background:#000;overflow:hidden;
+}
+#pipe-vid-wrap iframe{width:100%;height:100%;border:none}
+#pipe-timer-bar{
+  width:100%;padding:6px 14px;background:var(--surf);border-top:1px solid var(--bord);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+}
+#pipe-timer-val{
+  font-family:'Press Start 2P',monospace;font-size:8px;color:var(--cyan);
+  flex-shrink:0;
+}
+#pipe-prog-outer{flex:1;height:6px;background:var(--panel);border-radius:3px;overflow:hidden}
+#pipe-prog-inner{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));
+  border-radius:3px;width:100%;transition:width 1s linear}
+#pipe-token-badge{
+  font-family:'Press Start 2P',monospace;font-size:6px;color:var(--gold);
+  flex-shrink:0;
+}
+.pipe-choice-row{
+  width:100%;padding:8px 14px;background:var(--surf);border-top:1px solid var(--bord);
+  display:flex;gap:8px;overflow-x:auto;flex-shrink:0;
+}
+.pipe-choice{
+  padding:5px 12px;background:rgba(136,85,255,.2);border:1px solid var(--purple);
+  border-radius:6px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;
+  white-space:nowrap;
+}
+.pipe-choice:active{border-color:var(--gold);color:var(--gold)}
+
+/* ══════════════════════════════════
+   MODALS (shared)
+══════════════════════════════════ */
+.modal-ov{
+  position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:600;
+  display:none;align-items:center;justify-content:center;padding:16px;
+  overflow-y:auto;
+}
+.modal-ov.open{display:flex}
+.modal-box{
+  background:var(--surf);border:2px solid var(--bord);border-radius:14px;
+  padding:20px;width:100%;max-width:400px;position:relative;max-height:90vh;overflow-y:auto;
+}
+.modal-box h3{
+  font-family:'Press Start 2P',monospace;font-size:8px;
+  color:var(--gold);margin-bottom:14px;text-align:center;line-height:1.8;
+}
+.modal-close{
+  position:absolute;top:12px;right:12px;background:none;border:none;
+  color:var(--dim);font-size:18px;cursor:pointer;
+}
+.modal-body{font-size:13px;color:var(--text);line-height:1.6}
+.modal-row{margin-bottom:10px}
+.modal-row label{
+  display:block;font-family:'Press Start 2P',monospace;font-size:5px;
+  color:var(--dim);margin-bottom:5px;
+}
+.modal-row input,.modal-row textarea{
+  width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--bord);
+  border-radius:6px;color:var(--text);font-size:14px;font-family:inherit;
+}
+.modal-row textarea{min-height:80px;resize:vertical}
+.modal-actions{display:flex;gap:8px;margin-top:14px}
+.btn-confirm{
+  flex:1;padding:10px;border-radius:8px;background:var(--gold);
+  border:none;color:#000;font-weight:700;font-size:14px;cursor:pointer;
+}
+.btn-cancel{
+  padding:10px 16px;border-radius:8px;background:var(--panel);
+  border:1px solid var(--bord);color:var(--dim);font-weight:700;font-size:14px;cursor:pointer;
+}
+.result-box{
+  background:var(--panel);border:1px solid var(--bord);border-radius:8px;
+  padding:12px;margin-top:12px;font-family:'Press Start 2P',monospace;
+  font-size:6px;color:var(--gold);line-height:2;word-break:break-all;
+}
+
+/* ── MUSIC ZONE ── */
+#music-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.note-btn{
+  aspect-ratio:1;border-radius:8px;border:none;cursor:pointer;
+  font-size:1.2rem;display:flex;align-items:center;justify-content:center;
+  transition:transform .1s,box-shadow .1s;
+}
+.note-btn:active{transform:scale(.9);box-shadow:0 0 14px rgba(255,215,0,.4)}
+.music-controls{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.music-ctrl-btn{
+  flex:1;padding:8px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:6px;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;
+  min-width:60px;
+}
+.music-ctrl-btn:active{border-color:var(--gold);color:var(--gold)}
+
+/* ── LIVING TOKEN ── */
+#star-feed{
+  max-height:200px;overflow-y:auto;display:flex;flex-direction:column;
+  gap:6px;margin:10px 0;
+}
+.star-msg{
+  background:var(--panel);border:1px solid var(--bord);border-radius:6px;
+  padding:8px 10px;font-size:12px;line-height:1.5;
+}
+.star-msg .star-who{
+  font-family:'Press Start 2P',monospace;font-size:5px;
+  color:var(--gold);margin-bottom:4px;
+}
+.star-msg .star-ai{color:var(--cyan);font-style:italic;font-size:11px}
+#star-input-row{display:flex;gap:8px;margin-top:8px}
+#star-input{
+  flex:1;padding:9px;background:var(--bg);border:1px solid var(--bord);
+  border-radius:6px;color:var(--text);font-size:14px;
+}
+
+/* ── TOKEN JUMP ── */
+.jump-display{
+  text-align:center;padding:20px 0;
+  font-family:'Press Start 2P',monospace;
+}
+.jump-val{font-size:18px;color:var(--gold);margin-bottom:6px;display:block}
+.jump-sub{font-size:6px;color:var(--dim)}
+.jump-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.jump-btn{
+  padding:10px;background:var(--panel);border:1px solid var(--bord);
+  border-radius:8px;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;
+}
+.jump-btn:active{border-color:var(--gold);color:var(--gold)}
+
+/* ── MARKETPLACE ── */
+.fire-offer{
+  background:var(--panel);border:1px solid var(--bord);border-radius:8px;
+  padding:12px;margin-bottom:10px;
+}
+.fire-offer .offer-title{font-weight:700;font-size:15px;margin-bottom:4px}
+.fire-offer .offer-price{color:var(--gold);font-family:'Press Start 2P',monospace;font-size:9px}
+.fire-offer .offer-meta{font-size:11px;color:var(--dim);margin-top:4px}
+.fire-actions{display:flex;gap:8px;margin-top:8px}
+.fire-accept{padding:7px 14px;background:var(--green);border:none;border-radius:6px;color:#000;font-weight:700;font-size:13px;cursor:pointer}
+.fire-reject{padding:7px 14px;background:var(--mario-red);border:none;border-radius:6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+
+/* ── CREATION ZONE ── */
+.create-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.create-card{
+  background:var(--panel);border:1px solid var(--bord);border-radius:8px;
+  padding:12px;cursor:pointer;text-align:center;transition:all .15s;
+}
+.create-card:active{border-color:var(--gold);transform:scale(.97)}
+.create-icon{font-size:1.8rem;display:block;margin-bottom:6px}
+.create-name{font-family:'Press Start 2P',monospace;font-size:5px;color:var(--gold);line-height:1.6}
+.create-desc{font-size:11px;color:var(--dim);margin-top:4px;line-height:1.4}
+
+/* ── COIN FX ── */
+#coin-fx{position:fixed;inset:0;pointer-events:none;z-index:4000}
+.coin-float{
+  position:absolute;font-family:'Press Start 2P',monospace;font-size:0.65rem;
+  color:var(--gold);pointer-events:none;animation:floatUp 1.4s ease-out forwards;
+}
+@keyframes floatUp{0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-90px) scale(1.2);opacity:0}}
+.blink{animation:blinkAnim 1s step-end infinite}
+@keyframes blinkAnim{50%{opacity:0}}
+
+/* ── FILM ROLL ── */
+#film-roll{
+  position:fixed;inset:0;background:rgba(0,0,0,.98);z-index:700;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#film-roll.open{display:flex}
+.film-frame{
+  width:min(90vw,360px);aspect-ratio:16/9;
+  background:#0a0a0a;border:4px solid var(--gold);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+}
+.film-sprocket{
+  position:absolute;top:0;left:0;right:0;height:14px;
+  background:repeating-linear-gradient(90deg,transparent,transparent 12px,#111 12px,#111 14px,transparent 14px,transparent 24px);
+  display:flex;align-items:center;
+}
+.film-sprocket.bot{top:auto;bottom:0}
+.film-content{
+  font-family:'Press Start 2P',monospace;font-size:7px;color:var(--gold);
+  text-align:center;line-height:2;z-index:1;padding:10px;
+}
+.film-ticker{
+  width:min(90vw,360px);background:var(--panel);border:1px solid var(--bord);
+  border-radius:6px;padding:10px;
+}
+.film-ticker-inner{
+  font-family:'Press Start 2P',monospace;font-size:6px;color:var(--cyan);
+  line-height:2;
+}
+#film-close-btn{
+  padding:10px 24px;background:var(--mario-red);border:none;border-radius:8px;
+  color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+}
+
+/* ── GHOST MODE ── */
+#ghost-ov{
+  position:fixed;inset:0;pointer-events:none;z-index:200;
+  background:radial-gradient(ellipse at center,transparent 30%,rgba(136,85,255,.15) 100%);
+  opacity:0;transition:opacity .5s;
+}
+#ghost-ov.active{opacity:1}
+
+/* ── NOTIFICATIONS ── */
+#notif{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);
+  background:var(--panel);border:1px solid var(--gold);border-radius:10px;
+  padding:8px 16px;z-index:800;transition:transform .3s;
+  font-family:'Press Start 2P',monospace;font-size:6px;color:var(--gold);
+  text-align:center;line-height:1.8;max-width:90vw;
+}
+#notif.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- Coin FX layer -->
+<div id="coin-fx"></div>
+<!-- Ghost overlay -->
+<div id="ghost-ov"></div>
+<!-- Notification toast -->
+<div id="notif"></div>
+
+<!-- Side Nav -->
+<nav id="sidenav">
+  <h3>► SYNCH PIPE ARCADE</h3>
+  <a href="https://pewpi-infinity.github.io/MARIO-TOKENS/" target="_blank">🏠 Arcade Hub</a>
+  <a href="https://pewpi-infinity.github.io/MARIO-TOKENS/pages/nes-emulator.html" target="_blank">🎮 NES</a>
+  <a href="https://pewpi-infinity.github.io/MARIO-TOKENS/pages/snes-emulator.html" target="_blank">🎮 SNES</a>
+  <a href="https://pewpi-infinity.github.io/MARIO-TOKENS/pages/gba-emulator.html" target="_blank">🎮 GBA</a>
+  <a href="https://pewpi-infinity.github.io/Mike-Tyson-s-Punchout/" target="_blank">🥊 Punch-Out</a>
+  <a href="https://pewpi-infinity.github.io/Solomons-Key/" target="_blank">🔑 Solomon's Key</a>
+  <a href="https://pewpi-infinity.github.io/MARIO-TOKENS/pages/jukebox-aerobics.html" target="_blank">🎵 Jukebox</a>
+  <a href="#" onclick="openPipeWarp();closeNav();return false" class="active">⚡ Synch Pipe Warp</a>
+</nav>
+<div id="nav-ov" onclick="closeNav()"></div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="topbar">
+    <button id="ham-btn" onclick="toggleNav()"><span></span><span></span><span></span></button>
+    <a id="logo" href="#">
+      <div class="logo-icon">🍄</div>
+      <div class="logo-text">
+        <div class="logo-top">∞ MARIO × INFINITY</div>
+        <div class="logo-sub">SYNCH PIPE ARCADE · SMB3</div>
+      </div>
+    </a>
+    <div class="topbar-right">
+      <div class="hud-chip">
+        <div class="lbl">COINS</div>
+        <div class="val" id="hud-coins">000</div>
+      </div>
+      <div class="hud-chip">
+        <div class="lbl">TOKENS</div>
+        <div class="val" id="hud-tokens">000</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMULATOR -->
+  <div id="emu-wrap">
+    <div id="emu-placeholder">
+      <div class="emu-logo">SUPER MARIO<br>ALL-STARS</div>
+      <div class="emu-sub">SNES · 1993 · INCLUDES SMB 1-3<br><span class="blink">LOADING...</span></div>
+    </div>
+    <div id="game-container"></div>
+    <div id="emu-loading">
+      <div class="load-txt">LOADING ROM...<br><span class="blink">▮</span></div>
+      <div class="load-bar"><div class="load-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div id="infobar">
+    <span id="game-name">SUPER MARIO ALL-STARS — SNES</span>
+    <div class="ib-row">
+      <button class="ib-btn" onclick="emuSave()">💾</button>
+      <button class="ib-btn" onclick="emuLoad()">📂</button>
+      <button class="ib-btn" onclick="reloadGame()">↺</button>
+      <button class="ib-btn" style="color:var(--purple);border-color:var(--purple)" onclick="openPipeWarp()">⚡ PIPE</button>
+    </div>
+  </div>
+
+  <!-- KNOWLEDGE TICKER -->
+  <div id="knowledge-ticker">
+    <div id="ticker-inner">
+      <span class="tick-item">🟡 MARIO TOKEN RESEARCH: <a href="https://en.wikipedia.org/wiki/Super_Mario_Bros._3" target="_blank">SMB3 Wikipedia</a></span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🍄 Power-up facts: Mushroom doubles Mario's size & adds a hit point</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">⭐ Starman invincibility lasts 10.5 seconds in SMB3</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🎮 <a href="https://tcrf.net/Super_Mario_All-Stars" target="_blank">TCRF Hidden Content</a></span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🪙 Collect 100 coins = 1-UP in every Mario game</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">📚 <a href="https://www.mariowiki.com/Super_Mario_Bros._3" target="_blank">MarioWiki SMB3</a></span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🏆 SMB3 sold 17.28 million copies — #4 best-selling NES game</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🔑 <a href="https://archive.org/details/super_mario_all_stars" target="_blank">Internet Archive: Mario All-Stars</a></span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">💰 <a href="https://coinmarketcap.com" target="_blank">CoinMarketCap</a> · Token economies & digital currency research</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🧱 Brick blocks contain hidden coins — 1 hit = 1 coin, keep hitting!</span>
+      <span class="tick-sep">●</span>
+      <span class="tick-item">🌍 <a href="https://archive.org/search?query=super+mario+bros+cartoon" target="_blank">Internet Archive Mario Cartoons</a></span>
+    </div>
+    <div id="ticker-new"></div>
+  </div>
+
+  <!-- TOUCH CONTROLS -->
+  <div id="ctrl">
+    <!-- Shoulder buttons top row -->
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+      <div id="shoulder-btns">
+        <button class="shldr" id="btn-l">L</button>
+        <button class="shldr" id="btn-r">R</button>
+      </div>
+      <div class="hud-chip" style="flex-direction:row;gap:8px;padding:4px 10px">
+        <button class="sys-btn" id="btn-select" style="padding:3px 8px;font-size:9px">SEL</button>
+        <button class="sys-btn" id="btn-start" style="padding:3px 8px;font-size:9px">START</button>
+      </div>
+    </div>
+    <div class="ctrl-row">
+      <div id="joy-wrap">
+        <div id="joy-base"></div>
+        <div id="joy-ring"></div>
+        <span class="joy-lbl u">▲</span>
+        <span class="joy-lbl d">▼</span>
+        <span class="joy-lbl l">◀</span>
+        <span class="joy-lbl r">▶</span>
+        <div id="joy-thumb"></div>
+      </div>
+      <div id="face-btns">
+        <button class="face-btn" id="btn-x">X</button>
+        <button class="face-btn" id="btn-a">A</button>
+        <button class="face-btn" id="btn-y">Y</button>
+        <button class="face-btn" id="btn-b">B</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMOJI POWER BAR -->
+  <div id="power-bar">
+    <div id="power-inner">
+      <button class="pow-btn" onclick="pow_brick()">
+        <span class="pow-emoji">🧱</span>
+        <span class="pow-label">TIME<br>CAPSULE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_gold()">
+        <span class="pow-emoji">🟡</span>
+        <span class="pow-label">MINT<br>TOKEN</span>
+      </button>
+      <button class="pow-btn" onclick="pow_platinum()">
+        <span class="pow-emoji">⚪</span>
+        <span class="pow-label">PLATINUM<br>UPGRADE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_star()">
+        <span class="pow-emoji">⭐</span>
+        <span class="pow-label">LIVING<br>TOKEN</span>
+      </button>
+      <button class="pow-btn" onclick="pow_mushroom()">
+        <span class="pow-emoji">🍄</span>
+        <span class="pow-label">LUIGI<br>DOUBLE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_music()">
+        <span class="pow-emoji">🎵</span>
+        <span class="pow-label">MUSIC<br>ZONE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_joystick()">
+        <span class="pow-emoji">🕹️</span>
+        <span class="pow-label">TOKEN<br>JUMP</span>
+      </button>
+      <button class="pow-btn" onclick="pow_ghost()">
+        <span class="pow-emoji">👻</span>
+        <span class="pow-label">GHOST<br>POWER</span>
+      </button>
+      <button class="pow-btn" onclick="pow_alien()">
+        <span class="pow-emoji">👽</span>
+        <span class="pow-label">CREATION<br>ZONE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_sunflower()">
+        <span class="pow-emoji">🌻</span>
+        <span class="pow-label">FIRE<br>MARKET</span>
+      </button>
+      <button class="pow-btn" onclick="pow_money()">
+        <span class="pow-emoji">🤑</span>
+        <span class="pow-label">SOCIAL<br>SHARE</span>
+      </button>
+      <button class="pow-btn" onclick="pow_magnet()">
+        <span class="pow-emoji">🧲</span>
+        <span class="pow-label">MEMORY<br>PULL</span>
+      </button>
+      <button class="pow-btn" onclick="pow_film()">
+        <span class="pow-emoji">📽️</span>
+        <span class="pow-label">FILM<br>ROLL</span>
+      </button>
+      <button class="pow-btn" onclick="pow_clapper()">
+        <span class="pow-emoji">🎬</span>
+        <span class="pow-label">AI<br>DIRECTOR</span>
+      </button>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ══════════════════════════════════
+     SYNCH PIPE WARP OVERLAY
+══════════════════════════════════ -->
+<div id="pipe-warp">
+  <div id="pipe-warp-header">
+    <h2>⚡ SYNCH PIPE — VIDEO WARP ⚡</h2>
+    <button class="pipe-close" onclick="closePipeWarp()">▶ RETURN</button>
+  </div>
+  <div id="pipe-vid-wrap">
+    <iframe id="pipe-iframe" src="" allowfullscreen allow="autoplay" loading="lazy"
+      sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>
+  </div>
+  <div id="pipe-timer-bar">
+    <div id="pipe-timer-val">1:00</div>
+    <div id="pipe-prog-outer"><div id="pipe-prog-inner"></div></div>
+    <div id="pipe-token-badge">🪙 <span id="pipe-tok">0</span></div>
+  </div>
+  <div class="pipe-choice-row">
+    <button class="pipe-choice" onclick="pickPipeVid(0)">🍄 Mario S1E1</button>
+    <button class="pipe-choice" onclick="pickPipeVid(1)">⭐ Mario S1E2</button>
+    <button class="pipe-choice" onclick="pickPipeVid(2)">🎮 SMB Show</button>
+    <button class="pipe-choice" onclick="pickPipeVid(3)">🌍 Adventures</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     FILM ROLL OVERLAY
+══════════════════════════════════ -->
+<div id="film-roll">
+  <div class="film-frame">
+    <div class="film-sprocket"></div>
+    <div class="film-content" id="film-content">
+      📽️ FILM IS ROLLING<br><br>
+      ▶▶▶ PRODUCTION IN PROGRESS<br>
+      <span class="blink">●REC</span>
+    </div>
+    <div class="film-sprocket bot"></div>
+  </div>
+  <div class="film-ticker">
+    <div class="film-ticker-inner" id="film-ticker-inner">
+      INITIALIZING CENTCOM TIMELINE...
+    </div>
+  </div>
+  <button id="film-close-btn" onclick="closeFilmRoll()">✕ CLOSE</button>
+</div>
+
+<!-- ══════════════════════════════════
+     MODALS
+══════════════════════════════════ -->
+
+<!-- 🧱 TIME CAPSULE -->
+<div id="modal-brick" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-brick')">✕</button>
+    <h3>🧱 TIME CAPSULE<br>ENCODER</h3>
+    <div class="modal-body">
+      <div class="modal-row">
+        <label>YOUR SECRET MESSAGE</label>
+        <textarea id="tc-msg" placeholder="Enter your message to encode and lock in time..."></textarea>
+      </div>
+      <div class="modal-row">
+        <label>UNLOCK DATE (optional)</label>
+        <input type="date" id="tc-date"/>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-brick')">Cancel</button>
+        <button class="btn-confirm" onclick="encodeCapsule()">🔒 LOCK IT</button>
+      </div>
+      <div id="tc-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🟡 MINT TOKEN -->
+<div id="modal-gold" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-gold')">✕</button>
+    <h3>🟡 MINT NEW<br>GOLD TOKEN</h3>
+    <div class="modal-body">
+      <div class="modal-row">
+        <label>TOKEN NAME</label>
+        <input type="text" id="tok-name" placeholder="e.g. INFINITY GOLD #001"/>
+      </div>
+      <div class="modal-row">
+        <label>TOKEN VALUE ($)</label>
+        <input type="number" id="tok-val" value="1" min="0.01" step="0.01"/>
+      </div>
+      <div class="modal-row">
+        <label>BACKING IDEA / PURPOSE</label>
+        <input type="text" id="tok-idea" placeholder="e.g. Mario research platform"/>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-gold')">Cancel</button>
+        <button class="btn-confirm" onclick="mintToken()">⚡ MINT</button>
+      </div>
+      <div id="gold-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ⚪ PLATINUM UPGRADE -->
+<div id="modal-plat" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-plat')">✕</button>
+    <h3>⚪ PLATINUM<br>UPGRADE</h3>
+    <div class="modal-body" id="plat-body">
+      <p>Loading your token wallet...</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-plat')">Cancel</button>
+        <button class="btn-confirm" onclick="doUpgrade()">🔧 UPGRADE</button>
+      </div>
+      <div id="plat-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ⭐ LIVING TOKEN -->
+<div id="modal-star" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-star')">✕</button>
+    <h3>⭐ LIVING TOKEN<br>COMMUNITY</h3>
+    <div class="modal-body">
+      <div id="star-feed"></div>
+      <div id="star-input-row">
+        <input type="text" id="star-input" placeholder="Add to the living token..."/>
+        <button class="btn-confirm" style="flex:0;padding:9px 14px" onclick="addStarMsg()">POST</button>
+      </div>
+      <div style="margin-top:8px;font-family:'Press Start 2P',monospace;font-size:5px;color:var(--dim)">
+        AI updates this token with knowledge as your community grows
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🍄 LUIGI DOUBLE -->
+<div id="modal-shroom" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-shroom')">✕</button>
+    <h3>🍄 LUIGI PARTNER<br>DOUBLER</h3>
+    <div class="modal-body">
+      <div class="modal-row">
+        <label>YOUR LUIGI (PARTNER USERNAME)</label>
+        <input type="text" id="luigi-user" placeholder="Find a project partner..."/>
+      </div>
+      <div style="margin:10px 0;font-size:12px;color:var(--dim);line-height:1.6">
+        Pick a partner. Together your tokens double. AI auto-connects compatible builders from the listing platform. One click = 2x token generation.
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-shroom')">Cancel</button>
+        <button class="btn-confirm" onclick="addLuigi()">🍄 PARTNER UP</button>
+      </div>
+      <div id="luigi-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🎵 MUSIC ZONE -->
+<div id="modal-music" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-music');stopAll()">✕</button>
+    <h3>🎵 MUSIC ZONE</h3>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:8px">Tap pads to create. Hold for sustain.</div>
+      <div id="music-grid">
+        <button class="note-btn" style="background:#ff2255" data-note="261.63" ontouchstart="playNote(261.63,e)" onclick="playNote(261.63)">C</button>
+        <button class="note-btn" style="background:#ff6600" data-note="293.66" onclick="playNote(293.66)">D</button>
+        <button class="note-btn" style="background:#ffd700" data-note="329.63" onclick="playNote(329.63)">E</button>
+        <button class="note-btn" style="background:#00cc44" data-note="349.23" onclick="playNote(349.23)">F</button>
+        <button class="note-btn" style="background:#0088ff" data-note="392.00" onclick="playNote(392.00)">G</button>
+        <button class="note-btn" style="background:#8855ff" data-note="440.00" onclick="playNote(440.00)">A</button>
+        <button class="note-btn" style="background:#cc44ff" data-note="493.88" onclick="playNote(493.88)">B</button>
+        <button class="note-btn" style="background:#00ffcc" data-note="523.25" onclick="playNote(523.25)">C²</button>
+      </div>
+      <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:var(--dim);margin:8px 0">
+        RECORDED: <span id="music-recording" style="color:var(--gold)">—</span>
+      </div>
+      <div class="music-controls">
+        <button class="music-ctrl-btn" onclick="startRecord()">⏺ REC</button>
+        <button class="music-ctrl-btn" onclick="stopRecord()">⏹ STOP</button>
+        <button class="music-ctrl-btn" onclick="playRecorded()">▶ PLAY</button>
+        <button class="music-ctrl-btn" onclick="mintMusicToken()">🪙 MINT</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🕹️ TOKEN JUMP -->
+<div id="modal-joystick" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-joystick')">✕</button>
+    <h3>🕹️ TOKEN JUMP<br>MULTIPLIER</h3>
+    <div class="modal-body">
+      <div class="jump-display">
+        <span class="jump-val">$<span id="jump-current">1.00</span></span>
+        <span class="jump-sub">CURRENT VALUE · PRESS JUMP TO GO UP</span>
+      </div>
+      <div class="jump-btns">
+        <button class="jump-btn" onclick="jumpToken(1)">🕹️ $1</button>
+        <button class="jump-btn" onclick="jumpToken(5)">🚀 $5</button>
+        <button class="jump-btn" onclick="jumpToken(10)">⚡ $10</button>
+        <button class="jump-btn" onclick="jumpToken(25)">💫 $25</button>
+        <button class="jump-btn" onclick="jumpToken(50)">🌟 $50</button>
+        <button class="jump-btn" onclick="jumpToken(100)">👑 $100</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--dim);line-height:1.5">
+        Jump the token value step-by-step. Each step adds legitimacy. Go too fast and users won't follow.
+        Build from $1 → $5 → $10. Patience = real money.
+      </div>
+      <div id="jump-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🌻 FIRE MARKETPLACE -->
+<div id="modal-fire" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-fire')">✕</button>
+    <h3>🌻 MARIO FIRE<br>MARKETPLACE</h3>
+    <div class="modal-body" id="fire-body">
+      Loading offers...
+    </div>
+  </div>
+</div>
+
+<!-- 👽 CREATION ZONE -->
+<div id="modal-alien" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-alien')">✕</button>
+    <h3>👽 CREATION<br>ZONE</h3>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.5">
+        Build anything. Every click creates value.
+      </div>
+      <div class="create-grid">
+        <div class="create-card" onclick="createThing('website')">
+          <span class="create-icon">🌐</span>
+          <div class="create-name">WEBSITE</div>
+          <div class="create-desc">Instant landing page from any idea</div>
+        </div>
+        <div class="create-card" onclick="createThing('token')">
+          <span class="create-icon">🪙</span>
+          <div class="create-name">TOKEN</div>
+          <div class="create-desc">New currency for your community</div>
+        </div>
+        <div class="create-card" onclick="createThing('research')">
+          <span class="create-icon">🔬</span>
+          <div class="create-name">RESEARCH</div>
+          <div class="create-desc">Deep research report on any topic</div>
+        </div>
+        <div class="create-card" onclick="createThing('tool')">
+          <span class="create-icon">🦾</span>
+          <div class="create-name">TOOL</div>
+          <div class="create-desc">Automate work with AI tools</div>
+        </div>
+      </div>
+      <div class="modal-row" style="margin-top:10px">
+        <label>YOUR IDEA OR SEARCH TOPIC</label>
+        <input type="text" id="create-idea" placeholder="e.g. Mario token research platform..."/>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-confirm" onclick="doCreate()">👽 CREATE</button>
+      </div>
+      <div id="create-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🧲 MEMORY PULL -->
+<div id="modal-magnet" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-magnet')">✕</button>
+    <h3>🧲 MEMORY PULL<br>TOKEN FORGE</h3>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.5">
+        Pulling all token memory from your system to forge a new platinum seed.
+      </div>
+      <div id="magnet-snapshot" class="result-box">Scanning...</div>
+      <div class="modal-actions" style="margin-top:10px">
+        <button class="btn-confirm" onclick="forgeFromMemory()">🧲 FORGE PLATINUM</button>
+      </div>
+      <div id="magnet-result" class="result-box" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🎬 AI DIRECTOR -->
+<div id="modal-clapper" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-clapper')">✕</button>
+    <h3>🎬 AI DIRECTOR<br>CENTCOM MOVIE</h3>
+    <div class="modal-body" id="director-body">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:3rem;margin-bottom:10px">🎬</div>
+        <div style="font-family:'Press Start 2P',monospace;font-size:6px;color:var(--gold);line-height:2">
+          THE AI JUST CLIPPED YOU<br>IN MARIO WORLD
+        </div>
+        <div style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6">
+          Your gameplay moments are being assembled into the Centcom Timeline movie. Every action, every coin, every token — stitched together into the epic story of ∞ Mario × Infinity.
+        </div>
+        <button class="btn-confirm" style="margin-top:14px;width:100%" onclick="generateClip()">🎬 GENERATE MY CLIP</button>
+        <div id="clip-result" class="result-box" style="display:none;margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 👻 GHOST MODAL -->
+<div id="modal-ghost" class="modal-ov">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-ghost')">✕</button>
+    <h3>👻 GHOST<br>SUPERPOWER</h3>
+    <div class="modal-body">
+      <div style="text-align:center;font-size:3rem;padding:10px 0">👻</div>
+      <div id="ghost-desc" style="font-family:'Press Start 2P',monospace;font-size:6px;color:var(--cyan);
+        text-align:center;line-height:2.2;margin:10px 0">
+        ACTIVATING GHOST MODE<br>YOU FLOAT ABOVE OTHER REALMS
+      </div>
+      <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:12px">
+        Ghost powers grant you passage through obstacles others cannot. In-game: you become a speed boost or flight power for other players. Spiritually: a protection glyph for your token ecosystem — harder to disrupt, easier to build.
+      </div>
+      <div id="ghost-powers">
+        <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:var(--dim);margin-bottom:8px">CHOOSE YOUR GHOST SUPERPOWER:</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-confirm" onclick="activateGhost()">👻 ACTIVATE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════
+   TOKEN WALLET (localStorage)
+══════════════════════════════════ */
+const W = (() => {
+  const K = 'mario3_wallet_v2';
+  function load() { try { return JSON.parse(localStorage.getItem(K)) || empty(); } catch { return empty(); } }
+  function empty() { return { owner: null, coins: 0, tokens: [], platinum: [], minted: 0, partner: null }; }
+  function save(d) { d.savedAt = new Date().toISOString(); localStorage.setItem(K, JSON.stringify(d)); return d; }
+
+  function addCoins(n) {
+    const d = load(); d.coins += n; save(d);
+    document.getElementById('hud-coins').textContent = String(d.coins).padStart(3,'0');
+    spawnCoin(n);
+    showKnowledge(n);
+    return d.coins;
+  }
+  function addTokenCount(n) {
+    const d = load(); d.minted += n; save(d);
+    document.getElementById('hud-tokens').textContent = String(d.minted).padStart(3,'0');
+    return d.minted;
+  }
+  function addToken(tok) {
+    const d = load(); d.tokens.push(tok); d.minted++; save(d);
+    document.getElementById('hud-tokens').textContent = String(d.minted).padStart(3,'0');
+    return tok;
+  }
+  function addPlatinum(p) { const d = load(); d.platinum.push(p); save(d); return p; }
+  function get() { return load(); }
+  function setPartner(u) { const d = load(); d.partner = u; save(d); }
+  return { addCoins, addTokenCount, addToken, addPlatinum, get, setPartner };
+})();
+
+/* Init HUD */
+(function() {
+  const d = W.get();
+  document.getElementById('hud-coins').textContent = String(d.coins).padStart(3,'0');
+  document.getElementById('hud-tokens').textContent = String(d.minted).padStart(3,'0');
+})();
+
+/* ══════════════════════════════════
+   EMULATOR — SNES MARIO ALL-STARS
+══════════════════════════════════ */
+const ROM_URL = 'https://raw.githubusercontent.com/pewpi-infinity/MARIO-TOKENS/main/roms/snes/MarioAllStars.zip';
+const ROM_NAME = 'SUPER MARIO ALL-STARS';
+
+function showLoading(v) {
+  const el = document.getElementById('emu-loading');
+  if (v) el.classList.add('show'); else el.classList.remove('show');
+}
+
+function loadGame() {
+  showLoading(true);
+  document.getElementById('emu-placeholder').style.display = 'none';
+  document.getElementById('game-container').innerHTML = '<div id="game"></div>';
+  window.EJS_player    = '#game';
+  window.EJS_core      = 'snes';
+  window.EJS_gameUrl   = ROM_URL;
+  window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_startOnLoaded = true;
+  window.EJS_VirtualGamepad = false;
+  const old = document.getElementById('ejs-script'); if (old) old.remove();
+  const s = document.createElement('script');
+  s.id = 'ejs-script';
+  s.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+  s.onload = () => { showLoading(false); showNotif('🍄 MARIO ALL-STARS LOADED!'); };
+  s.onerror = () => {
+    showLoading(false);
+    document.getElementById('emu-placeholder').style.display = 'flex';
+    document.getElementById('emu-placeholder').innerHTML =
+      '<div class="emu-logo" style="font-size:8px">⚠️ LOAD FAILED</div>' +
+      '<div class="emu-sub">Check connection.<br>Try uploading ROM manually.</div>' +
+      '<button class="btn-confirm" style="margin-top:12px" onclick="document.getElementById(\'upload-rom\').click()">📂 UPLOAD ROM</button>';
+  };
+  document.body.appendChild(s);
+}
+
+function reloadGame() {
+  document.getElementById('game-container').innerHTML = '';
+  document.getElementById('emu-placeholder').style.display = 'flex';
+  const old = document.getElementById('ejs-script'); if (old) old.remove();
+  if (window.EJS_emulator) { try { window.EJS_emulator = null; } catch(e){} }
+  setTimeout(loadGame, 200);
+}
+
+function emuSave() { if (window.EJS_emulator) try { window.EJS_emulator.saveState(); showNotif('💾 State Saved'); } catch(e){} }
+function emuLoad() { if (window.EJS_emulator) try { window.EJS_emulator.loadState(); showNotif('📂 State Loaded'); } catch(e){} }
+
+window.addEventListener('load', () => setTimeout(loadGame, 500));
+
+/* ══════════════════════════════════
+   SNES TOUCH CONTROLS
+══════════════════════════════════ */
+(function() {
+  const wrap = document.getElementById('joy-wrap');
+  const thumb = document.getElementById('joy-thumb');
+  const R = 44, dead = 10;
+  let active = false, keys = {};
+
+  function getC() { const r = wrap.getBoundingClientRect(); return { x: r.left+r.width/2, y: r.top+r.height/2 }; }
+  function sk(k, v) {
+    if (v && !keys[k]) { document.dispatchEvent(new KeyboardEvent('keydown',{key:k,bubbles:true})); keys[k]=true; }
+    else if (!v && keys[k]) { document.dispatchEvent(new KeyboardEvent('keyup',{key:k,bubbles:true})); keys[k]=false; }
+  }
+  function move(px, py) {
+    const c = getC(), dx = px-c.x, dy = py-c.y;
+    const dist = Math.sqrt(dx*dx+dy*dy), cl = Math.min(dist,R), a = Math.atan2(dy,dx);
+    thumb.style.transform = `translate(calc(-50% + ${Math.cos(a)*cl}px),calc(-50% + ${Math.sin(a)*cl}px))`;
+    if (dist > dead) {
+      sk('ArrowUp',    dy<-dead && Math.abs(dy)>Math.abs(dx)*.5);
+      sk('ArrowDown',  dy> dead && Math.abs(dy)>Math.abs(dx)*.5);
+      sk('ArrowLeft',  dx<-dead && Math.abs(dx)>Math.abs(dy)*.5);
+      sk('ArrowRight', dx> dead && Math.abs(dx)>Math.abs(dy)*.5);
+    } else { ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k=>sk(k,false)); }
+  }
+  function release() {
+    active=false; thumb.style.transform='translate(-50%,-50%)'; thumb.classList.remove('active');
+    ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k=>sk(k,false));
+  }
+  wrap.addEventListener('touchstart',e=>{e.preventDefault();active=true;thumb.classList.add('active');move(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+  wrap.addEventListener('touchmove', e=>{e.preventDefault();if(active)move(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+  wrap.addEventListener('touchend',  e=>{e.preventDefault();release()},{passive:false});
+  wrap.addEventListener('mousedown', e=>{active=true;thumb.classList.add('active');move(e.clientX,e.clientY)});
+  document.addEventListener('mousemove', e=>{if(active)move(e.clientX,e.clientY)});
+  document.addEventListener('mouseup',   ()=>{if(active)release()});
+})();
+
+(function() {
+  // SNES button mappings
+  const map = {
+    'btn-a': 'x', 'btn-b': 'z',
+    'btn-x': 's', 'btn-y': 'a',
+    'btn-start': 'Enter', 'btn-select': 'Shift',
+    'btn-l': 'q', 'btn-r': 'e'
+  };
+  Object.keys(map).forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    const key = map[id];
+    const p = () => document.dispatchEvent(new KeyboardEvent('keydown',{key,bubbles:true}));
+    const r = () => document.dispatchEvent(new KeyboardEvent('keyup',{key,bubbles:true}));
+    el.addEventListener('touchstart',e=>{e.preventDefault();p()},{passive:false});
+    el.addEventListener('touchend',  e=>{e.preventDefault();r()},{passive:false});
+    el.addEventListener('mousedown',p); el.addEventListener('mouseup',r);
+  });
+})();
+
+/* ══════════════════════════════════
+   NAV
+══════════════════════════════════ */
+function toggleNav() {
+  document.getElementById('sidenav').classList.toggle('open');
+  document.getElementById('nav-ov').classList.toggle('show');
+}
+function closeNav() {
+  document.getElementById('sidenav').classList.remove('open');
+  document.getElementById('nav-ov').classList.remove('show');
+}
+
+/* ══════════════════════════════════
+   SYNCH PIPE WARP
+══════════════════════════════════ */
+const PIPE_VIDS = [
+  'https://archive.org/embed/MarioBrothers_201410',
+  'https://archive.org/embed/super_mario_bros_super_show_s01e01',
+  'https://archive.org/embed/super_mario_bros_super_show_s01e02',
+  'https://archive.org/embed/adventures_of_super_mario_bros_3_s01e01',
+];
+let pipeInterval = null, pipeSec = 60, pipeTokEarned = 0;
+
+function openPipeWarp() {
+  document.getElementById('pipe-warp').classList.add('open');
+  pickPipeVid(0);
+  W.addCoins(5);
+  showNotif('⚡ +5 COINS — WARP ACTIVATED');
+  pipeSec = 60; pipeTokEarned = 0;
+  document.getElementById('pipe-prog-inner').style.width = '100%';
+  pipeInterval = setInterval(() => {
+    pipeSec--;
+    const m = Math.floor(pipeSec/60), s = pipeSec%60;
+    document.getElementById('pipe-timer-val').textContent = m+':'+(s<10?'0':'')+s;
+    document.getElementById('pipe-prog-inner').style.width = (pipeSec/60*100)+'%';
+    if (pipeSec % 10 === 0) { pipeTokEarned++; W.addCoins(1); document.getElementById('pipe-tok').textContent = pipeTokEarned; }
+    if (pipeSec <= 0) closePipeWarp();
+  }, 1000);
+}
+function closePipeWarp() {
+  document.getElementById('pipe-warp').classList.remove('open');
+  document.getElementById('pipe-iframe').src = '';
+  if (pipeInterval) clearInterval(pipeInterval);
+  W.addCoins(3);
+  showNotif('▶ RETURNED · +3 COINS');
+}
+function pickPipeVid(i) {
+  document.getElementById('pipe-iframe').src = (PIPE_VIDS[i]||PIPE_VIDS[0]) + '?autoplay=1';
+}
+
+/* ══════════════════════════════════
+   KNOWLEDGE TICKER
+══════════════════════════════════ */
+const KNOWLEDGE = [
+  { text: '🟡 COIN COLLECTED → Mario Tokens research:', link: 'https://www.mariowiki.com/Coin', linkTxt:'MarioWiki Coins' },
+  { text: '🍄 Power-Up theory: Mushroom = hit point buffer in platformer design', link:'https://en.wikipedia.org/wiki/Power-up', linkTxt:'Wikipedia: Power-up' },
+  { text: '⭐ Star tokens: Invincibility as a metaphor for market protection', link:'https://cryptoslate.com', linkTxt:'CryptoSlate Research' },
+  { text: '🧱 Brick hit = value discovery: Every tap reveals hidden assets', link:'https://www.mariowiki.com/Brick_Block', linkTxt:'Brick Block Wiki' },
+  { text: '🪙 Digital token economics: supply, demand, utility', link:'https://coinmarketcap.com/alexandria/article/what-is-tokenomics', linkTxt:'CoinMarketCap: Tokenomics' },
+  { text: '🎮 SMB3 ROM encoding: 512KB of pure 6502 assembly', link:'https://tcrf.net/Super_Mario_Bros._3', linkTxt:'TCRF.net Analysis' },
+  { text: '🌍 Archive.org has 800+ Mario cartoons free to watch', link:'https://archive.org/search?query=mario', linkTxt:'Internet Archive Mario' },
+  { text: '📐 Mario level design: constraints breed creativity', link:'https://en.wikipedia.org/wiki/Shigeru_Miyamoto', linkTxt:'Shigeru Miyamoto' },
+  { text: '💰 Token utility: what makes digital currency valuable?', link:'https://www.investopedia.com/terms/u/utility-token.asp', linkTxt:'Investopedia: Utility Token' },
+  { text: '🔑 Solomon\'s Key: NES puzzle design meets modern crypto logic', link:'https://www.mariowiki.com', linkTxt:'Research continues...' },
+];
+let tickerIdx = 0;
+
+function showKnowledge(coins) {
+  const item = KNOWLEDGE[tickerIdx % KNOWLEDGE.length];
+  tickerIdx++;
+  const el = document.getElementById('ticker-new');
+  el.innerHTML = `${item.text} <a href="${item.link}" target="_blank" style="color:var(--cyan);margin-left:4px">${item.linkTxt} →</a>`;
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 3000);
+}
+
+/* ══════════════════════════════════
+   NOTIFICATIONS & COIN FX
+══════════════════════════════════ */
+let notifTimer = null;
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.innerHTML = msg; el.classList.add('show');
+  if (notifTimer) clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function spawnCoin(n) {
+  const fx = document.getElementById('coin-fx');
+  for (let i = 0; i < Math.min(n, 5); i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'coin-float';
+      el.textContent = '+' + n + ' 🪙';
+      el.style.left = (15 + Math.random()*70) + '%';
+      el.style.bottom = '30%';
+      fx.appendChild(el);
+      setTimeout(() => el.remove(), 1500);
+    }, i * 80);
+  }
+}
+
+/* ══════════════════════════════════
+   MODALS
+══════════════════════════════════ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ══════════════════════════════════
+   🧱 TIME CAPSULE
+══════════════════════════════════ */
+function pow_brick() { openModal('modal-brick'); }
+function encodeCapsule() {
+  const msg = document.getElementById('tc-msg').value.trim();
+  const dt  = document.getElementById('tc-date').value;
+  if (!msg) { showNotif('⚠️ Enter a message first'); return; }
+  const ts = Date.now();
+  const encoded = btoa(encodeURIComponent(msg));
+  const hash = Array.from(encoded).reduce((h,c)=>((h<<5)-h)+c.charCodeAt(0)|0,0).toString(16).toUpperCase();
+  const capsule = { msg: encoded, hash, created: new Date().toISOString(), unlock: dt||'ANYTIME', id: 'CAP-'+ts };
+  const saved = JSON.parse(localStorage.getItem('capsules')||'[]');
+  saved.push(capsule); localStorage.setItem('capsules', JSON.stringify(saved));
+  const res = document.getElementById('tc-result');
+  res.style.display = 'block';
+  res.innerHTML = `CAPSULE ID: ${capsule.id}\nHASH: ${hash}\nLOCKED: ${capsule.created.slice(0,10)}\nUNLOCK: ${capsule.unlock}\n\nENCODED: ${encoded.slice(0,40)}...`;
+  W.addCoins(3); showNotif('🧱 CAPSULE LOCKED · +3 COINS');
+}
+
+/* ══════════════════════════════════
+   🟡 MINT TOKEN
+══════════════════════════════════ */
+function pow_gold() { openModal('modal-gold'); }
+function mintToken() {
+  const name  = document.getElementById('tok-name').value.trim() || 'INFINITY GOLD';
+  const val   = parseFloat(document.getElementById('tok-val').value) || 1;
+  const idea  = document.getElementById('tok-idea').value.trim() || 'General purpose';
+  const ts    = Date.now();
+  const tok = {
+    id: 'GOLD-' + ts, name, value: val, idea, type: 'GOLD',
+    created: new Date().toISOString(),
+    hash: Math.abs(name.split('').reduce((h,c)=>((h<<5)-h)+c.charCodeAt(0)|0,0)).toString(16).toUpperCase()
+  };
+  W.addToken(tok); W.addCoins(5);
+  const res = document.getElementById('gold-result');
+  res.style.display='block';
+  res.innerHTML = `🟡 TOKEN MINTED!\nID: ${tok.id}\nNAME: ${tok.name}\nVALUE: $${tok.value}\nHASH: ${tok.hash}\nBACKING: ${tok.idea}`;
+  showNotif('🟡 GOLD TOKEN MINTED · +5 COINS');
+  showKnowledge(5);
+}
+
+/* ══════════════════════════════════
+   ⚪ PLATINUM UPGRADE
+══════════════════════════════════ */
+function pow_platinum() {
+  const d = W.get();
+  const body = document.getElementById('plat-body');
+  body.innerHTML = d.tokens.length === 0
+    ? '<p style="color:var(--dim)">No gold tokens to upgrade yet. Mint some 🟡 first!</p>'
+    : `<p style="font-size:12px;color:var(--dim);margin-bottom:10px">Select a token to upgrade to Platinum ⚪</p>
+       ${d.tokens.slice(-5).map((t,i) =>
+         `<div style="background:var(--panel);border:1px solid var(--bord);border-radius:6px;padding:8px;margin-bottom:6px;cursor:pointer;font-size:12px" onclick="selectUpgrade('${t.id}')">
+           <b style="color:var(--gold)">${t.name}</b> · $${t.value}<br>
+           <span style="font-size:10px;color:var(--dim)">${t.id}</span>
+         </div>`).join('')}
+       <div class="modal-actions"><button class="btn-cancel" onclick="closeModal('modal-plat')">Cancel</button><button class="btn-confirm" onclick="doUpgrade()">⚪ UPGRADE</button></div>
+       <div id="plat-result" class="result-box" style="display:none"></div>`;
+  openModal('modal-plat');
+}
+let selectedUpgradeId = null;
+function selectUpgrade(id) {
+  selectedUpgradeId = id;
+  document.querySelectorAll('#plat-body > div').forEach(d => d.style.borderColor='var(--bord)');
+  showNotif('Selected: ' + id);
+}
+function doUpgrade() {
+  const d = W.get();
+  const tok = selectedUpgradeId ? d.tokens.find(t=>t.id===selectedUpgradeId) : d.tokens[d.tokens.length-1];
+  if (!tok) { showNotif('⚠️ No token selected'); return; }
+  const plat = { ...tok, type:'PLATINUM', id:'PLAT-'+Date.now(), upgradedFrom: tok.id, upgradedAt: new Date().toISOString() };
+  W.addPlatinum(plat); W.addCoins(10);
+  const res = document.getElementById('plat-result')||document.createElement('div');
+  res.style.display='block';
+  res.id='plat-result';
+  res.className='result-box';
+  res.innerHTML = `⚪ PLATINUM MINTED!\nID: ${plat.id}\nFROM: ${tok.name}\nARCHIVED AS LEGACY\nNEW VERSION LIVE`;
+  document.getElementById('plat-body').appendChild(res);
+  showNotif('⚪ PLATINUM UPGRADE · +10 COINS');
+}
+
+/* ══════════════════════════════════
+   ⭐ LIVING TOKEN
+══════════════════════════════════ */
+const AI_COMMENTS = [
+  'The community grows stronger with every token. 🌱',
+  'This living token now spans 3 realms of the Synch Pipe ecosystem.',
+  'Research note: this pattern mirrors early Bitcoin adoption curves.',
+  'Your network effect is accelerating. Keep building.',
+  'The AI sees convergence points forming in your token graph.',
+  'New connection formed: Mario × Token × Community = Real Value.',
+];
+let starMessages = JSON.parse(localStorage.getItem('star_msgs')||'[]');
+function pow_star() {
+  renderStarFeed();
+  openModal('modal-star');
+}
+function renderStarFeed() {
+  const feed = document.getElementById('star-feed');
+  if (!feed) return;
+  feed.innerHTML = starMessages.slice(-10).map(m =>
+    `<div class="star-msg">
+       <div class="star-who">${m.who} · ${m.at}</div>
+       ${m.text}
+       ${m.ai ? `<div class="star-ai">🤖 AI: ${m.ai}</div>` : ''}
+     </div>`
+  ).join('') || '<div style="color:var(--dim);font-size:12px;padding:8px">No messages yet — be the first!</div>';
+  feed.scrollTop = feed.scrollHeight;
+}
+function addStarMsg() {
+  const inp = document.getElementById('star-input');
+  const txt = inp.value.trim(); if (!txt) return;
+  const msg = {
+    who: W.get().owner || 'Anonymous',
+    text: txt, at: new Date().toLocaleTimeString(),
+    ai: Math.random() > 0.5 ? AI_COMMENTS[Math.floor(Math.random()*AI_COMMENTS.length)] : null
+  };
+  starMessages.push(msg);
+  localStorage.setItem('star_msgs', JSON.stringify(starMessages.slice(-50)));
+  inp.value = '';
+  renderStarFeed();
+  W.addCoins(2); showNotif('⭐ POSTED · +2 COINS');
+}
+
+/* ══════════════════════════════════
+   🍄 LUIGI DOUBLE
+══════════════════════════════════ */
+function pow_mushroom() { openModal('modal-shroom'); }
+function addLuigi() {
+  const user = document.getElementById('luigi-user').value.trim() || 'AutoLuigi-' + Math.floor(Math.random()*9999);
+  W.setPartner(user);
+  const bonus = Math.floor(W.get().minted / 2) + 5;
+  W.addCoins(bonus);
+  const res = document.getElementById('luigi-result');
+  res.style.display='block';
+  res.innerHTML = `🍄 PARTNER: ${user}\nDOUBLE TOKENS ACTIVE!\nBONUS MINTED: +${bonus} COINS\n\nLuigi follows you now.\nEvery token prints 2x.`;
+  showNotif(`🍄 LUIGI ${user} ACTIVATED · +${bonus} COINS`);
+}
+
+/* ══════════════════════════════════
+   🎵 MUSIC ZONE
+══════════════════════════════════ */
+let audioCtx = null, recording = false, recordedNotes = [];
+function getAudio() { if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); return audioCtx; }
+function playNote(freq) {
+  const ctx = getAudio();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = 'square'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+  osc.start(); osc.stop(ctx.currentTime + 0.4);
+  if (recording) {
+    recordedNotes.push({ freq, time: Date.now() });
+    document.getElementById('music-recording').textContent = recordedNotes.length + ' notes';
+  }
+  W.addCoins(1);
+}
+function startRecord() { recording=true; recordedNotes=[]; document.getElementById('music-recording').textContent='RECORDING...'; showNotif('⏺ RECORDING'); }
+function stopRecord() { recording=false; document.getElementById('music-recording').textContent=recordedNotes.length+' notes saved'; showNotif('⏹ STOPPED · '+recordedNotes.length+' notes'); }
+let playIndex = 0;
+function playRecorded() {
+  if (!recordedNotes.length) { showNotif('No recording yet'); return; }
+  recordedNotes.forEach((n, i) => setTimeout(() => playNote(n.freq), i * 200));
+}
+function mintMusicToken() {
+  if (!recordedNotes.length) { showNotif('Record something first!'); return; }
+  const tok = { id:'MUSIC-'+Date.now(), name:'MUSIC TOKEN', notes:recordedNotes.length, type:'MUSIC', created:new Date().toISOString() };
+  W.addToken(tok); W.addCoins(8); showNotif('🎵 MUSIC TOKEN MINTED · +8 COINS');
+}
+function stopAll() { if (audioCtx) { audioCtx.close(); audioCtx=null; } }
+function pow_music() { openModal('modal-music'); }
+
+/* ══════════════════════════════════
+   🕹️ TOKEN JUMP
+══════════════════════════════════ */
+let jumpVal = 1.0;
+function pow_joystick() { jumpVal=1.0; document.getElementById('jump-current').textContent=jumpVal.toFixed(2); openModal('modal-joystick'); }
+function jumpToken(target) {
+  const prev = jumpVal;
+  jumpVal = target;
+  document.getElementById('jump-current').textContent = jumpVal.toFixed(2);
+  const coins = Math.floor(Math.log2(target+1)) + 1;
+  W.addCoins(coins);
+  const res = document.getElementById('jump-result');
+  res.style.display='block';
+  res.innerHTML = `JUMPED: $${prev.toFixed(2)} → $${jumpVal.toFixed(2)}\nEARNED: +${coins} COINS\nVALUE LEVEL: ${Math.floor(Math.log2(target+1))+1}\n\n${target >= 100 ? '👑 MAXIMUM JUMP ACHIEVED!' : 'Build trust at this level first.'}`;
+  showNotif(`🕹️ TOKEN JUMPED TO $${target} · +${coins} COINS`);
+}
+
+/* ══════════════════════════════════
+   🌻 FIRE MARKETPLACE
+══════════════════════════════════ */
+const OFFERS = [
+  { title:'Mario Token Bundle × 10', price:'$10.00', meta:'Seller has 4.8⭐ · 847 sold', quality: 'good' },
+  { title:'Crumpled $1 Bill (scanned)', price:'$1.00', meta:'Seller has 2.1⭐ · No returns', quality: 'bad' },
+  { title:'Research Article Access Pass', price:'$5.00', meta:'Seller has 4.9⭐ · Digital delivery', quality: 'good' },
+  { title:'Expired Gift Card', price:'$25.00 claimed', meta:'Seller has 1.5⭐ · Suspicious', quality: 'bad' },
+  { title:'Infinity Token #0042 Gold', price:'$50.00', meta:'Verified creator · Smart contract', quality: 'good' },
+];
+function pow_sunflower() {
+  const body = document.getElementById('fire-body');
+  body.innerHTML = '<div style="font-size:12px;color:var(--dim);margin-bottom:10px">🌻 Use Mario FirePower to ACCEPT or REJECT marketplace offers:</div>' +
+    OFFERS.map((o,i) =>
+      `<div class="fire-offer">
+        <div class="offer-title">${o.title}</div>
+        <div class="offer-price">${o.price}</div>
+        <div class="offer-meta">${o.meta}</div>
+        <div class="fire-actions">
+          <button class="fire-accept" onclick="fireDecision(${i},'accept')">✅ ACCEPT</button>
+          <button class="fire-reject" onclick="fireDecision(${i},'reject')">🔥 FIRE!</button>
+        </div>
+      </div>`).join('');
+  openModal('modal-fire');
+}
+function fireDecision(i, action) {
+  const o = OFFERS[i];
+  if (action === 'accept' && o.quality === 'bad') {
+    showNotif('⚠️ BAD DEAL — Use FirePower to reject!');
+    document.querySelectorAll('.fire-offer')[i].style.borderColor='var(--red)';
+  } else if (action === 'reject') {
+    document.querySelectorAll('.fire-offer')[i].style.opacity='0.4';
+    W.addCoins(3); showNotif('🔥 FIRED! ' + o.title + ' · +3 COINS');
+  } else {
+    W.addCoins(5); showNotif('✅ DEAL ACCEPTED: ' + o.title + ' · +5 COINS');
+    document.querySelectorAll('.fire-offer')[i].style.borderColor='var(--green)';
+  }
+}
+
+/* ══════════════════════════════════
+   👻 GHOST POWER
+══════════════════════════════════ */
+const GHOST_POWERS = [
+  { name:'SPEED BOOST', desc:'You run 2x speed for 60 seconds in-game. Others feel your slipstream.' },
+  { name:'FLOAT REALM', desc:'You pass over walls that stop others. Spiritual elevation active.' },
+  { name:'PROTECTION GLYPH', desc:'Your token ecosystem gains a 24hr disruption shield.' },
+  { name:'PHASE SHIFT', desc:'You appear as a power-up to other players in the network.' },
+];
+function pow_ghost() {
+  const container = document.getElementById('ghost-powers');
+  container.innerHTML = '<div style="font-family:\'Press Start 2P\',monospace;font-size:5px;color:var(--dim);margin-bottom:8px">CHOOSE YOUR GHOST SUPERPOWER:</div>' +
+    GHOST_POWERS.map((p,i) =>
+      `<div style="background:var(--panel);border:1px solid var(--bord);border-radius:6px;padding:9px 10px;margin-bottom:6px;cursor:pointer" onclick="selectGhost(${i})">
+        <b style="color:var(--cyan)">${p.name}</b><br>
+        <span style="font-size:11px;color:var(--dim)">${p.desc}</span>
+      </div>`
+    ).join('');
+  openModal('modal-ghost');
+}
+let selectedGhost = 0;
+function selectGhost(i) { selectedGhost = i; showNotif('👻 ' + GHOST_POWERS[i].name + ' selected'); }
+function activateGhost() {
+  const g = GHOST_POWERS[selectedGhost];
+  document.getElementById('ghost-ov').classList.add('active');
+  setTimeout(() => document.getElementById('ghost-ov').classList.remove('active'), 5000);
+  W.addCoins(7);
+  showNotif(`👻 ${g.name} ACTIVATED · +7 COINS`);
+  closeModal('modal-ghost');
+}
+
+/* ══════════════════════════════════
+   👽 CREATION ZONE
+══════════════════════════════════ */
+function pow_alien() { openModal('modal-alien'); }
+function createThing(type) {
+  const idea = document.getElementById('create-idea').value.trim() || 'Mario Token Platform';
+  const res = document.getElementById('create-result');
+  const outcomes = {
+    website: `🌐 WEBSITE BLUEPRINT\nTitle: "${idea}"\nSections: Hero · Token Display · Research · Community\nStack: HTML5 · JS · GitHub Pages\nDeploy: 3 minutes\n🟡→👑→🤓→🦾`,
+    token: `🪙 TOKEN STRUCTURE\nName: ${idea.split(' ').map(w=>w[0]).join('')}-TOKEN\nType: Utility\nSupply: 1,000,000\nValue Base: Research + Community\n⚙️→💰→💲`,
+    research: `🔬 RESEARCH BRIEF\nTopic: "${idea}"\nSources: Wikipedia · CoinMarketCap · MarioWiki · Archive.org\nDeliverables: 5-page report + citations\nTimeline: Auto-generated`,
+    tool: `🦾 TOOL SPEC\nPurpose: "${idea}"\nInputs: User data + token balance\nOutputs: Automated actions\nIntegrations: GitHub · Discord · Twitter`,
+  };
+  res.style.display = 'block';
+  res.textContent = outcomes[type] || 'CREATING...';
+  W.addCoins(10); showNotif('👽 CREATED: ' + type.toUpperCase() + ' · +10 COINS');
+}
+function doCreate() { createThing('website'); }
+
+/* ══════════════════════════════════
+   🧲 MEMORY PULL
+══════════════════════════════════ */
+function pow_magnet() {
+  const d = W.get();
+  const snap = document.getElementById('magnet-snapshot');
+  snap.textContent = `WALLET SNAPSHOT\n════════════════\nCOINS: ${d.coins}\nTOKENS MINTED: ${d.minted}\nGOLD TOKENS: ${d.tokens.length}\nPLATINUM: ${d.platinum.length}\nPARTNER: ${d.partner||'None'}\nSAVED: ${d.savedAt||'Never'}\n\nMEMORY INTEGRITY: ${d.tokens.length > 0 ? 'VERIFIED ✅' : 'EMPTY'}`;
+  openModal('modal-magnet');
+}
+function forgeFromMemory() {
+  const d = W.get();
+  const seed = JSON.stringify(d).length;
+  const plat = {
+    id: 'FORGE-' + Date.now(), type: 'PLATINUM_SEED',
+    name: 'MEMORY FORGE #' + (d.platinum.length+1),
+    forgedFrom: seed + ' bytes of memory',
+    coins: d.coins, tokens: d.minted,
+    created: new Date().toISOString()
+  };
+  W.addPlatinum(plat); W.addCoins(15);
+  const res = document.getElementById('magnet-result');
+  res.style.display='block';
+  res.innerHTML = `⚪ PLATINUM SEED FORGED!\nID: ${plat.id}\nMEMORY COMPRESSED: ${seed} bytes\nNEW TOKEN LEFT BEHIND\nGOLD READY TO BUILD ON`;
+  showNotif('🧲 PLATINUM FORGED FROM MEMORY · +15 COINS');
+}
+
+/* ══════════════════════════════════
+   📽️ FILM ROLL
+══════════════════════════════════ */
+const FILM_LINES = [
+  '● FRAME 1: MARIO ENTERS THE PIPE...',
+  '● FRAME 2: TOKENS BEGIN TO FORM...',
+  '● FRAME 3: THE SYNCH PIPE CONNECTS...',
+  '● FRAME 4: YOUR WALLET GROWS...',
+  '● FRAME 5: LUIGI JOINS THE FRAME...',
+  '● FRAME 6: CENTCOM TIMELINE LOCKED...',
+  '● FRAME 7: PRODUCTION COMPLETE...',
+  '● MASTER PRINT: READY FOR RELEASE',
+];
+function pow_film() {
+  document.getElementById('film-roll').classList.add('open');
+  let i = 0;
+  const ticker = document.getElementById('film-ticker-inner');
+  const interval = setInterval(() => {
+    if (i < FILM_LINES.length) {
+      ticker.textContent = FILM_LINES[i++];
+    } else {
+      clearInterval(interval);
+      ticker.textContent = '✅ FILM LOCKED — CENTCOM TIMELINE COMPLETE';
+      W.addCoins(6);
+      showNotif('📽️ FILM COMPLETE · +6 COINS');
+    }
+  }, 600);
+}
+function closeFilmRoll() { document.getElementById('film-roll').classList.remove('open'); }
+
+/* ══════════════════════════════════
+   🎬 AI DIRECTOR
+══════════════════════════════════ */
+function pow_clapper() { openModal('modal-clapper'); }
+function generateClip() {
+  const d = W.get();
+  const res = document.getElementById('clip-result');
+  res.style.display='block';
+  res.innerHTML = `🎬 YOUR CENTCOM CLIP\n══════════════════\nPLAYER: ${d.owner||'Anonymous'}\nCOINS COLLECTED: ${d.coins}\nTOKENS MINTED: ${d.minted}\nMOMENTS CAPTURED: ${d.coins + d.minted}\n\nSCENES:\n  — Coin collection: ${d.coins} frames\n  — Power-up grabs: ${Math.floor(d.coins/3)} scenes\n  — Token mints: ${d.minted} credits\n\nDURATION: ~${Math.max(1, Math.floor(d.coins/10))}m ${(d.coins%10)*6}s\nFORMAT: Centcom Timeline Archive\nSTATUS: ASSEMBLED ✅`;
+  W.addCoins(4); showNotif('🎬 CLIP GENERATED · +4 COINS');
+}
+
+/* ══════════════════════════════════
+   🤑 SOCIAL SHARE
+══════════════════════════════════ */
+function pow_money() {
+  const d = W.get();
+  const text = `🍄 Playing Super Mario All-Stars on ∞ Mario × Infinity!\n🪙 Coins: ${d.coins} · Tokens: ${d.minted}\n⚡ Synch Pipe Arcade · pewpi-infinity.github.io`;
+  if (navigator.share) {
+    navigator.share({ title:'Mario × Infinity', text, url: window.location.href })
+      .then(() => { W.addCoins(5); showNotif('🤑 SHARED · +5 COINS'); })
+      .catch(() => fallbackShare(text));
+  } else { fallbackShare(text); }
+}
+function fallbackShare(text) {
+  navigator.clipboard.writeText(text).then(() => showNotif('📋 COPIED TO CLIPBOARD · +2 COINS'));
+  W.addCoins(2);
+}
+</script>
+</body>
+</html>
